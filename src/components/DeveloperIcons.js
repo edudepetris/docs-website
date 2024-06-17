@@ -2,63 +2,85 @@ import React, { useState } from 'react';
 import styled from '@emotion/styled';
 
 import icons from '../data/developer-icons.json';
-console.log(icons);
 
 const tuples = Object.entries(icons);
 const DeveloperIcons = () => {
+  const [query, setQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
+  const [copiedTimeoutId, setCopiedTimeoutId] = useState(null);
+  const [copiedIndex, setCopiedIndex] = useState(null);
 
-  const iconsView =
-    viewMode === 'grid' ? (
-      <Grid>
-        {tuples.map(([name, svg]) => (
-          <li>
-            <p>{name}</p>
-            <div dangerouslySetInnerHTML={{ __html: svg }} />
-          </li>
-        ))}
-      </Grid>
-    ) : (
-      <List>
-        {tuples.map(([name, svg]) => (
-          <div>
-            <dt>{name}</dt>
-            <dd dangerouslySetInnerHTML={{ __html: svg }} />
-          </div>
-        ))}
-      </List>
-    );
+  const filteredIcons = tuples.filter(([name]) =>
+    name.toLowerCase().includes(query)
+  );
+
+  const copy = (text, index) => () => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    const id = setTimeout(() => {
+      setCopiedIndex(null);
+    }, 3000);
+    setCopiedTimeoutId(id);
+  };
 
   return (
     <Container>
+      <div>
+        <input
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Filter icons by name"
+          type="text"
+          value={query}
+        />
+      </div>
       <fieldset>
-        <legend>View:</legend>
+        <legend>View</legend>
         <div>
           <input
+            aria-label="List view"
             checked={viewMode === 'list'}
             id="list"
             onChange={(e) => setViewMode(e.target.value)}
             type="radio"
             value="list"
           />
+          <ListIcon />
         </div>
         <div>
           <input
+            aria-label="List grid"
             checked={viewMode === 'grid'}
             id="grid"
             onChange={(e) => setViewMode(e.target.value)}
             type="radio"
             value="grid"
           />
+          <GridIcon />
         </div>
       </fieldset>
 
-      {iconsView}
+      <List className={viewMode}>
+        {filteredIcons.map(([name, svg], i) => (
+          <button
+            onClick={copy(name, i)}
+            onMouseLeave={() => {
+              setCopiedIndex(null);
+              clearInterval(copiedTimeoutId);
+              setCopiedTimeoutId(null);
+            }}
+          >
+            <dt>{i === copiedIndex ? 'Copied name!' : name}</dt>
+            <dd dangerouslySetInnerHTML={{ __html: svg }} />
+          </button>
+        ))}
+      </List>
     </Container>
   );
 };
 
 const Container = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   padding: 1rem 1rem 4rem;
 
   .dark-mode && svg {
@@ -70,7 +92,20 @@ const Container = styled.div`
     display: flex;
     gap: 2rem;
     justify-content: end;
-    padding: 1rem 6rem;
+    padding: 0;
+
+    & div {
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    & svg {
+      height: 100%;
+      pointer-events: none;
+      position: absolute;
+      width: 100%;
+    }
   }
 
   /* styling legends is weird. 
@@ -84,6 +119,8 @@ const Container = styled.div`
 
   & input[type='radio'] {
     appearance: none;
+    border: 1px solid var(--primary-text-color);
+    cursor: pointer;
     height: 1.5rem;
     width: 1.5rem;
 
@@ -98,64 +135,134 @@ const Container = styled.div`
   }
 `;
 
-const Grid = styled.ul`
-  --icon-size: 2.5rem;
-  display: grid;
-  gap: 2rem;
-  grid-template-columns: repeat(auto-fill, var(--icon-size));
+const List = styled.dl`
+  --icon-size: 3.25rem;
   list-style: none;
-  padding: 0;
+  grid-column: 1 / 3;
 
-  & li {
+  & > button {
+    background: transparent;
+    border: 0;
+    color: var(--primary-text-color);
+    cursor: pointer;
     display: flex;
-    justify-content: center;
     margin: 0;
     position: relative;
-    width: var(--icon-size);
-  }
-  & li div {
     width: 100%;
   }
 
-  & p {
-    bottom: 0;
-    display: none;
+  & dd {
     margin: 0;
-    position: absolute;
   }
 
-  & li:hover p {
-    display: block;
-  }
-`;
-
-const List = styled.dl`
-  & > div {
-    display: flex;
+  &.grid {
+    display: grid;
     gap: 1rem;
-    flex-wrap: wrap;
-    padding: 0.5rem;
+    grid-template-columns: repeat(auto-fill, var(--icon-size));
+    padding: 0;
+
+    & > button {
+      border: 1px solid transparent;
+      border-radius: 4px;
+      justify-content: center;
+      padding: 0.5rem;
+      width: var(--icon-size);
+    }
+
+    & > button:hover {
+      border: 1px solid var(--border-color);
+
+      & dt {
+        display: block;
+      }
+    }
+
+    & dd {
+      width: 100%;
+    }
+
+    & dt {
+      background: var(--primary-contrast-color);
+      border-radius: 4px;
+      bottom: -60%;
+      display: none;
+      font-family: var(--code-font);
+      font-size: 0.75rem;
+      margin: 0;
+      padding: 0.25rem 0.6rem;
+      position: absolute;
+      width: max-content;
+      z-index: 1;
+    }
+  }
+
+  &.list {
+    & > button {
+      align-items: center;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding: 0.5rem;
+    }
+
+    & > button:nth-of-type(odd) {
+      background: var(--primary-contrast-color);
+    }
+
+    & dd {
+      width: 2rem;
+    }
+
+    & dt {
+      flex-grow: 1;
+      text-align: left;
+      word-break: break-all;
+    }
   }
 
   @media (width < 750px) {
-    & > div {
-      display: block;
-    }
-    dt {
-      margin-bottom: 1rem;
-    }
-  }
+    &.list {
+      & > button {
+        display: block;
+      }
 
-  & > div:nth-of-type(odd) {
-    background: #eee;
-  }
-
-  & dd {
-    width: 2rem;
-  }
-  & dt {
-    word-break: break-all;
+      dt {
+        margin-bottom: 1rem;
+      }
+    }
   }
 `;
+
+const GridIcon = () => (
+  <svg
+    width="40"
+    height="40"
+    viewBox="0 0 40 40"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect x="8" y="8" width="10" height="10" fill="#D9D9D9" />
+    <rect x="8" y="22" width="10" height="10" fill="#D9D9D9" />
+    <rect x="22" y="8" width="10" height="10" fill="#D9D9D9" />
+    <rect x="22" y="22" width="10" height="10" fill="#D9D9D9" />
+  </svg>
+);
+
+const ListIcon = () => (
+  <svg
+    width="40"
+    height="40"
+    viewBox="0 0 40 40"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect x="12" y="8" width="22" height="4" fill="#D9D9D9" />
+    <rect x="5" y="8" width="4" height="4" fill="#D9D9D9" />
+    <rect x="12" y="18" width="22" height="4" fill="#D9D9D9" />
+    <rect x="5" y="18" width="4" height="4" fill="#D9D9D9" />
+    <rect x="12" y="28" width="22" height="4" fill="#D9D9D9" />
+    <rect x="5" y="28" width="4" height="4" fill="#D9D9D9" />
+  </svg>
+);
 
 export default DeveloperIcons;
